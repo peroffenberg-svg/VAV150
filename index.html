@@ -120,7 +120,7 @@
 <div id="header">
   <div class="brand">
     <div class="logo-circle"><span>VAV<br>150</span></div>
-    <h1>Akerselva<small>Jubileumstur 2024</small></h1>
+    <h1>Akerselva<small>Jubileumstur 2026</small></h1>
   </div>
   <button id="locate-btn" onclick="locateMe()">
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
@@ -153,7 +153,7 @@
 </div>
 
 <div id="info-panel">
-  <h2>VAV 150 &#229;r</h2>
+  <h2>VAV 150 VAV 150 &#229;r#229;r</h2>
   <div class="subtitle">Vann- og avl&#248;psetaten &middot; Oslo kommune</div>
   <p>Jubileumstur langs Akerselva fra Gullhaug bru til Jakobs kirke &mdash; 19 poster, ca. 4 km. Postene registreres automatisk n&#229;r du kommer innenfor 40 meter. Bruk ogs&#229; knappen i hvert post-panel for manuell registrering.</p>
   <div class="legend-block">
@@ -321,34 +321,6 @@ const posts = [
 ];
 
 // Rute langs Akerselva med waypoints som følger elveløpet
-const routeWaypoints = [
-  [59.948967, 10.767830],
-  [59.949805, 10.764977],
-  [59.948200, 10.764400],
-  [59.946516, 10.764785],
-  [59.945100, 10.765200],
-  [59.943903, 10.765849],
-  [59.942500, 10.765300],
-  [59.941261, 10.764741],
-  [59.940931, 10.767693],
-  [59.940767, 10.766139],
-  [59.940084, 10.768109],
-  [59.939000, 10.767500],
-  [59.938000, 10.764000],
-  [59.937000, 10.760000],
-  [59.936200, 10.757500],
-  [59.935945, 10.757123],
-  [59.934800, 10.757000],
-  [59.933713, 10.756735],
-  [59.932000, 10.754500],
-  [59.930000, 10.753800],
-  [59.928000, 10.753200],
-  [59.925226, 10.752802],
-  [59.922922, 10.753240],
-  [59.921000, 10.753400],
-  [59.919394, 10.753506],
-  [59.918355, 10.754899]
-];
 
 const typeConfig = {
   va:       { label: 'VA-historisk',    cssClass: 'va',       tagClass: 'tag-va' },
@@ -389,9 +361,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 L.control.zoom({ position: 'topright' }).addTo(map);
 
 // Rute langs elva
-L.polyline(routeWaypoints, {
-  color: '#4a80a4', weight: 4, opacity: 0.7, dashArray: '8,6'
-}).addTo(map);
 
 // ── MARKER HELPERS ──
 function markerBg(post) {
