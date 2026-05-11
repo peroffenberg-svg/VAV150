@@ -113,9 +113,65 @@
   .cel-box button{background:var(--green);color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;}
 
   .leaflet-container{font-family:'DM Sans',sans-serif;}
+
+  /* ── SPLASH SCREEN ── */
+  #splash{position:fixed;inset:0;z-index:5000;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center;transition:opacity .5s ease;}
+  #splash.hidden{opacity:0;pointer-events:none;}
+  #splash .splash-logo{width:72px;height:72px;border:2.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+  #splash .splash-logo span{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);line-height:1;}
+  #splash h2{font-family:'Playfair Display',serif;font-size:32px;color:#fff;line-height:1.1;margin-bottom:6px;}
+  #splash h2 em{display:block;font-style:normal;font-size:13px;color:var(--gold);letter-spacing:3px;text-transform:uppercase;font-family:'DM Sans',sans-serif;font-weight:500;margin-top:4px;}
+  #splash .splash-divider{width:40px;height:2px;background:var(--gold);margin:16px auto;}
+  #splash p{font-size:14px;color:rgba(255,255,255,.72);line-height:1.6;max-width:280px;margin-bottom:24px;}
+  #splash .splash-stats{display:flex;gap:28px;margin-bottom:28px;}
+  #splash .stat .val{font-family:'Playfair Display',serif;font-size:28px;color:#fff;display:block;line-height:1;}
+  #splash .stat .lbl{font-size:10px;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;display:block;}
+  #splash-btn{background:var(--gold);color:var(--green);border:none;border-radius:14px;padding:16px 36px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:.3px;}
+  #splash-btn:active{opacity:.85;}
+  #splash .splash-hint{margin-top:14px;font-size:11px;color:rgba(255,255,255,.3);}
+
+  /* ── NEXT POST BANNER ── */
+  #next-banner{position:fixed;bottom:78px;left:12px;right:12px;z-index:850;background:rgba(20,38,28,.93);backdrop-filter:blur(8px);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;transition:all .35s ease;pointer-events:none;}
+  #next-banner.visible{transform:translateY(0);opacity:1;}
+  #next-banner .nb-badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+  #next-banner .nb-info{flex:1;min-width:0;}
+  #next-banner .nb-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.45);font-weight:600;}
+  #next-banner .nb-name{font-size:13px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #next-banner .nb-dist{font-size:14px;color:var(--gold);font-weight:700;flex-shrink:0;min-width:48px;text-align:right;}
+
+  /* ── MARKER POP ANIMATION ── */
+  @keyframes markerPop{0%{transform:scale(1)}30%{transform:scale(1.65)}65%{transform:scale(.85)}82%{transform:scale(1.12)}100%{transform:scale(1)}}
+  @keyframes rippleOut{0%{transform:scale(.8);opacity:.8}100%{transform:scale(3.8);opacity:0}}
+
 </style>
 </head>
 <body>
+
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <div class="splash-logo"><span>VAV<br>150</span></div>
+  <h2>Akerselva<em>Jubileumstur 2026</em></h2>
+  <div class="splash-divider"></div>
+  <p>Vandring langs Oslos historiske vannlivsåre &#8212; fra Gullhaug bru til Jakobs kirke.</p>
+  <div class="splash-stats">
+    <div class="stat"><span class="val">19</span><span class="lbl">Poster</span></div>
+    <div class="stat"><span class="val">4</span><span class="lbl">Kilometer</span></div>
+    <div class="stat"><span class="val">150</span><span class="lbl">År VAV</span></div>
+  </div>
+  <button id="splash-btn" onclick="startApp()">Start turen &#8594;</button>
+  <div class="splash-hint">Trykk for å åpne kartet</div>
+</div>
+
+<!-- NEXT POST BANNER -->
+<div id="next-banner">
+  <div class="nb-badge" id="nb-badge"></div>
+  <div class="nb-info">
+    <div class="nb-label">Neste post</div>
+    <div class="nb-name" id="nb-name"></div>
+  </div>
+  <div class="nb-dist" id="nb-dist"></div>
+</div>
 
 <div id="header">
   <div class="brand">
@@ -450,6 +506,7 @@ function markComplete(postId, auto) {
   updateProgress();
   const post = posts.find(p => p.id === postId);
   refreshMarker(post);
+  animateMarker(postId);
   buildList();
   if (auto) {
     showToast('success', 'Post ' + postId + ' fullfort!', post.name, '', 3000);
@@ -584,6 +641,7 @@ function startWatching() {
       userMarkerLayer = L.layerGroup().addTo(map);
       L.circle([lat,lng], { radius: accuracy, color:'#4a80a4', fillColor:'#4a80a4', fillOpacity:.08, weight:1 }).addTo(userMarkerLayer);
       L.circleMarker([lat,lng], { radius:8, fillColor:'#4a80a4', fillOpacity:.95, color:'#fff', weight:2.5 }).addTo(userMarkerLayer);
+      updateNextBanner(lat, lng);
       posts.forEach(post => {
         if (completed.has(post.id)) return;
         if (distanceM(lat, lng, post.lat, post.lng) <= GPS_RADIUS_M) markComplete(post.id, true);
@@ -626,12 +684,66 @@ function locateMe() {
   );
 }
 
-// Auto-start hvis tillatelse allerede er gitt
-if (navigator.geolocation && navigator.permissions) {
-  navigator.permissions.query({ name: 'geolocation' }).then(r => {
-    if (r.state === 'granted') startWatching();
-  });
+
+// ── SPLASH ──
+function startApp() {
+  const splash = document.getElementById('splash');
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.style.display = 'none'; }, 500);
+  // Auto-start GPS if permission already granted
+  if (navigator.geolocation && navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(r => {
+      if (r.state === 'granted') startWatching();
+    });
+  }
 }
+// Show splash only on first visit today
+const todayKey = 'vav150_seen_' + new Date().toDateString();
+if (localStorage.getItem(todayKey)) {
+  document.getElementById('splash').style.display = 'none';
+} else {
+  localStorage.setItem(todayKey, '1');
+}
+
+// ── NEXT POST BANNER ──
+const bgColors = { va:'#8b1a1a', activity:'#2d5c40', food:'#b06000', end:'#1a1a1a' };
+
+function updateNextBanner(userLat, userLng) {
+  const next = posts.find(p => !completed.has(p.id));
+  if (!next) { document.getElementById('next-banner').classList.remove('visible'); return; }
+  const d = distanceM(userLat, userLng, next.lat, next.lng);
+  const distStr = d < 1000 ? Math.round(d) + ' m' : (d/1000).toFixed(1) + ' km';
+  const badge = document.getElementById('nb-badge');
+  badge.textContent = next.id === 19 ? 'M' : next.id;
+  badge.style.background = bgColors[next.type];
+  document.getElementById('nb-name').textContent = next.name;
+  document.getElementById('nb-dist').textContent = distStr;
+  document.getElementById('next-banner').classList.add('visible');
+}
+
+// ── MARKER POP + RIPPLE ──
+function animateMarker(postId) {
+  const m = markerRefs[postId];
+  if (!m) return;
+  const el = m.getElement();
+  if (!el) return;
+  const inner = el.querySelector('div');
+  if (inner) {
+    inner.classList.remove('marker-pop');
+    void inner.offsetWidth; // reflow
+    inner.classList.add('marker-pop');
+    setTimeout(() => inner.classList.remove('marker-pop'), 600);
+  }
+  // Ripple element
+  const ripple = document.createElement('div');
+  ripple.style.cssText = `position:absolute;width:32px;height:32px;border-radius:50%;border:3px solid #27ae60;top:0;left:0;animation:rippleOut .7s ease-out forwards;pointer-events:none;`;
+  el.style.overflow = 'visible';
+  el.style.position = 'relative';
+  el.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 750);
+}
+
+
 
 map.on('click', () => closePanel());
 </script>
