@@ -728,19 +728,41 @@ function animateMarker(postId) {
   const el = m.getElement();
   if (!el) return;
   const inner = el.querySelector('div');
+
+  // Pop animation on the inner div only - does not affect marker position
   if (inner) {
     inner.classList.remove('marker-pop');
-    void inner.offsetWidth; // reflow
+    void inner.offsetWidth;
     inner.classList.add('marker-pop');
     setTimeout(() => inner.classList.remove('marker-pop'), 600);
   }
-  // Ripple element
-  const ripple = document.createElement('div');
-  ripple.style.cssText = `position:absolute;width:32px;height:32px;border-radius:50%;border:3px solid #27ae60;top:0;left:0;animation:rippleOut .7s ease-out forwards;pointer-events:none;`;
-  el.style.overflow = 'visible';
-  el.style.position = 'relative';
-  el.appendChild(ripple);
-  setTimeout(() => ripple.remove(), 750);
+
+  // Ripple: use a Leaflet circleMarker on the map instead of DOM manipulation
+  // This avoids any position shift on the marker element
+  const pos = m.getLatLng();
+  const rippleCircle = L.circleMarker(pos, {
+    radius: 18,
+    color: '#27ae60',
+    fillColor: 'transparent',
+    fillOpacity: 0,
+    weight: 2.5,
+    opacity: 0.9,
+    interactive: false
+  }).addTo(map);
+
+  let opacity = 0.9;
+  let radius = 18;
+  const interval = setInterval(() => {
+    radius += 4;
+    opacity -= 0.12;
+    if (opacity <= 0) {
+      clearInterval(interval);
+      rippleCircle.remove();
+      return;
+    }
+    rippleCircle.setRadius(radius);
+    rippleCircle.setStyle({ opacity });
+  }, 40);
 }
 
 
