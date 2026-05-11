@@ -391,8 +391,35 @@ function refreshMarker(post) {
   if (markerRefs[post.id]) markerRefs[post.id].setIcon(buildIcon(post));
 }
 
+// Spread overlapping posts in a small arc around their shared coordinate
+// Groups: [6,7,8], [11,12,13], [14,15]
+const offsetGroups = [
+  [6, 7, 8],
+  [11, 12, 13],
+  [14, 15]
+];
+
+// Offset distance in degrees (~18m at Oslo latitude)
+const OFFSET = 0.00016;
+
+function getOffset(postId) {
+  for (const group of offsetGroups) {
+    const idx = group.indexOf(postId);
+    if (idx === -1) continue;
+    const n = group.length;
+    // Spread evenly in a horizontal row: left, center, right
+    // For 3: -1, 0, +1 offset; for 2: -0.5, +0.5
+    const step = (idx - (n - 1) / 2);
+    return { dlat: OFFSET * 0.5, dlng: OFFSET * step * 1.6 };
+  }
+  return { dlat: 0, dlng: 0 };
+}
+
 posts.forEach(post => {
-  const m = L.marker([post.lat, post.lng], { icon: buildIcon(post) })
+  const off = getOffset(post.id);
+  const lat = post.lat + off.dlat;
+  const lng = post.lng + off.dlng;
+  const m = L.marker([lat, lng], { icon: buildIcon(post) })
     .addTo(map)
     .on('click', () => openPanel(post));
   markerRefs[post.id] = m;
