@@ -114,6 +114,41 @@
 
   .leaflet-container{font-family:'DM Sans',sans-serif;}
 
+
+  /* ── RICH CONTENT PANEL ── */
+  #rich-panel{position:fixed;inset:0;z-index:2500;background:#fff;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1);}
+  #rich-panel.open{transform:translateY(0);}
+  #rich-panel-header{padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;flex-shrink:0;}
+  #rich-panel-header .rp-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+  #rich-panel-close{background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;padding:0;}
+  #rich-panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+  /* Image gallery */
+  .rp-gallery{position:relative;background:#111;overflow:hidden;}
+  .rp-gallery-track{display:flex;transition:transform .35s ease;}
+  .rp-gallery-slide{flex-shrink:0;width:100%;}
+  .rp-gallery-slide img{width:100%;height:260px;object-fit:cover;display:block;}
+  .rp-gallery-caption{position:absolute;bottom:0;left:0;right:0;padding:8px 12px;background:linear-gradient(transparent,rgba(0,0,0,.65));font-size:11px;color:rgba(255,255,255,.85);font-style:italic;line-height:1.4;}
+  .rp-gallery-dots{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;gap:5px;}
+  .rp-gallery-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);}
+  .rp-gallery-dot.active{background:#fff;}
+  .rp-gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.35);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:-14px;}
+  .rp-gallery-nav.prev{left:8px;}
+  .rp-gallery-nav.next{right:8px;}
+
+  /* Text content */
+  .rp-content{padding:18px 18px 32px;}
+  .rp-num{font-family:'Playfair Display',serif;font-size:13px;color:#aaa;margin-bottom:4px;}
+  .rp-title{font-family:'Playfair Display',serif;font-size:22px;line-height:1.2;color:#111;margin-bottom:12px;}
+  .rp-body{font-size:14px;line-height:1.75;color:#444;}
+  .rp-body p{margin-bottom:10px;}
+  .rp-source{margin-top:12px;font-size:11px;color:#aaa;font-style:italic;border-top:1px solid #f0f0f0;padding-top:10px;}
+
+  /* Complete button in rich panel */
+  #rp-btn-complete{display:block;width:calc(100% - 36px);margin:0 18px 24px;padding:14px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;}
+  #rp-btn-complete.incomplete{background:#27ae60;color:#fff;}
+  #rp-btn-complete.complete{background:#e8f5e9;color:#27ae60;cursor:default;}
+
   /* ── SPLASH SCREEN ── */
   #splash{position:fixed;inset:0;z-index:5000;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center;transition:opacity .5s ease;}
   #splash.hidden{opacity:0;pointer-events:none;}
@@ -147,6 +182,30 @@
 </head>
 <body>
 
+
+
+<!-- RICH CONTENT PANEL -->
+<div id="rich-panel">
+  <div id="rich-panel-header">
+    <span id="rp-tag" class="rp-tag"></span>
+    <button id="rich-panel-close" onclick="closeRichPanel()">&#10005;</button>
+  </div>
+  <div id="rich-panel-body">
+    <div class="rp-gallery" id="rp-gallery" style="display:none">
+      <div class="rp-gallery-track" id="rp-gallery-track"></div>
+      <div class="rp-gallery-dots" id="rp-gallery-dots"></div>
+      <button class="rp-gallery-nav prev" id="rp-prev" onclick="galleryNav(-1)">&#8249;</button>
+      <button class="rp-gallery-nav next" id="rp-next" onclick="galleryNav(1)">&#8250;</button>
+    </div>
+    <div class="rp-content">
+      <div class="rp-num" id="rp-num"></div>
+      <div class="rp-title" id="rp-title"></div>
+      <div class="rp-body" id="rp-body"></div>
+      <div class="rp-source" id="rp-source"></div>
+    </div>
+    <button id="rp-btn-complete" onclick="rpToggleComplete()"></button>
+  </div>
+</div>
 
 <!-- SPLASH SCREEN -->
 <div id="splash">
@@ -562,12 +621,18 @@ function openPanel(post) {
   document.getElementById('panel-title').textContent = post.name;
   document.getElementById('panel-desc').textContent = post.desc;
   updateCompleteButton(post.id);
-  document.getElementById('post-panel').classList.add('open');
+  // If rich content exists, show rich panel instead of simple panel
+  if (richContent[post.id]) {
+    openRichPanel(post);
+  } else {
+    document.getElementById('post-panel').classList.add('open');
+  }
   map.panTo([post.lat, post.lng], { animate: true });
 }
 
 function closePanel() {
   document.getElementById('post-panel').classList.remove('open');
+  closeRichPanel();
   currentPost = null;
 }
 
@@ -697,6 +762,111 @@ function locateMe() {
   );
 }
 
+
+
+// ── RICH CONTENT DATA ──
+const richContent = {"5": {"images": [{"src": "img/image2.jpg", "caption": "Vannvokterboligen i Riflegata 13. Foto: Under byens gater. Oslos vann- og avløpshistorie."}], "body": "<p>Vannvokterboligen er oppført i forbindelse med at byens vanninntak ble flyttet fra Bjølsendammene og opp til Maridalsvannet i 1867. Maridalsvannet ligger 150 moh., og de gamle trerørene tålte ikke det nye vanntrykket.</p><p>Å nullstille trykket var billigere enn å legge om hele ledningsnettet. Derfor ble det gravd ut og murt opp to store trykkreduksjonsbasseng på Bjølsen, ca. midtveis mellom Maridalsvannet og sentrum. Hus og hage ble anlagt på lokket.</p><p>I første etasje var instrumentene for måling av trykk og vannmengde. I annen etasje bodde inspektøren på tre rom og kjøkken, mens loftet var hvilerom for assistenten. Huset tjente som vannvokterbolig fram til 1917.</p>", "source": "Huset har fått datidens mest fornemme form, i slekt med herskapshusene i Homansbyen, for å vise betydningen av vanntilførselen til byen."}, "9": {"images": [{"src": "img/image1.jpg", "caption": "Treschows bru, maleri av Frits Thaulow, ca. 1895. Lillehammer kunstmuseum."}], "body": "<p>I andre halvdel av 1800-tallet var sagvirksomheten langs Akerselva blitt så omfattende at sagmugg stoppet til trerørsledningene for drikkevann. I 1860 ble vanninntaket derfor flyttet fra Vøyenbrua og ca. 1 km opp til Bjølsendammene, rett overfor Treschows bru på Bjølsen.</p><p>Problemer med å skaffe nok vann til den stadig voksende industrien langs elva, kombinert med utbrudd av vannbårne sykdommer som kolera og tyfoidfeber, ga støtet til at det ble bygd en ny dam ved Maridalsoset, og til at selve vanninntaket ble flyttet opp til Maridalsvannet i 1867.</p>", "source": "Dammene eksisterer ikke lenger."}, "10": {"images": [{"src": "img/image3.jpg", "caption": "Bjølsen valsemølle med Bjølsenfossen, Akerselvas største fall. Foto: Oslo Museum."}, {"src": "img/image4.jpg", "caption": "Bjølsen Valsemølle tok tidlig i bruk valsestoler som revolusjonerte møllevirksomheten på 1870-tallet. Foto: Wilse/Oslo Museum."}], "body": "<p>Bjølsen Valsemølle ble grunnlagt i 1884 og ble Norges ledende innen kornforedling. Den voldsomme befolkningsveksten i Christiania i denne tiden gjorde matmel til et lukrativt produkt, og konkurrerende møller langs elva og på Østlandet ble kjøpt opp.</p><p>Det er ikke tilfeldig den ligger ved Bjølsenfossen, Akerselvas største fall. Valsemøllene ble drevet med vannkraft, og rettighetene til elvefallene var derfor viktig.</p><p>Etter 1900 ble Bjølsen Valsemølle videreutviklet med ny demning og kraftstasjon. Bedriften er den som lengst har hatt produksjon ved Akerselva og er fortsatt i drift.</p>", "source": "Fossen ligger inne på Ceralias eiendom og er ikke åpen for publikum. Imponerende inntaksrør for vann kan ses på nedsiden av fossen."}, "14": {"images": [{"src": "img/image5.jpg", "caption": "Gutter leker med båt på den gamle Vøyenbrua. I forgrunnen elvebredden der dagens blå skilt står. Foto: Oslo Museum."}], "body": "<p>Like nord for broa på Sagene står et av Oslo Byes Vels blå skilt til minne om byens første vanninntak som lå her. Det var anlagt før 1634, og en trerørsledning gikk herfra til Akershus festning — \"Festningsledningen\".</p><p>Etter hvert ble i alt sju ledninger anlagt herfra. Den siste i 1845, som forsynte Slottet og ble kalt \"Slottsledningen\". Vanninntaket ble ikke nedlagt før i 1879, selv om det var kommet nytt vanninntak ved Maridalsvannet i 1867.</p>", "source": ""}, "15": {"images": [{"src": "img/image6.jpg", "caption": "\"Memini Aqua\". Foto: Petter A. Hepsøe."}], "body": "<p>På den andre siden av elva ved det gamle vanninntaket står en elefantskulptur i bronse, utført av Petter Alexander Hepsøe i 2015. Tittelen er \"Memini Aqua\" — husk vannet — og er en slags tvilling til det blå skiltet ved Vøyenbrua.</p><p>Skulpturen er en gave til byen fra Legat til Oslo bys forskjønnelse.</p>", "source": ""}};
+
+let galleryIndex = 0;
+let galleryImages = [];
+let richPanelPostId = null;
+
+function openRichPanel(post) {
+  richPanelPostId = post.id;
+  const cfg = typeConfig[post.type];
+  const done = completed.has(post.id);
+  const rc = richContent[post.id];
+
+  // Header tag
+  const tag = document.getElementById('rp-tag');
+  tag.textContent = cfg.label;
+  tag.className = 'rp-tag ' + cfg.tagClass;
+
+  // Text content
+  document.getElementById('rp-num').textContent = 'Post ' + post.id;
+  document.getElementById('rp-title').textContent = post.name;
+  document.getElementById('rp-body').innerHTML = rc ? rc.body : '<p>' + post.desc + '</p>';
+  document.getElementById('rp-source').textContent = rc && rc.source ? rc.source : '';
+  document.getElementById('rp-source').style.display = rc && rc.source ? 'block' : 'none';
+
+  // Gallery
+  const gallery = document.getElementById('rp-gallery');
+  if (rc && rc.images && rc.images.length > 0) {
+    galleryImages = rc.images;
+    gallery.style.display = 'block';
+    buildGallery();
+    // Show/hide nav arrows
+    document.getElementById('rp-prev').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+    document.getElementById('rp-next').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+  } else {
+    gallery.style.display = 'none';
+    galleryImages = [];
+  }
+
+  // Complete button
+  updateRpButton(post.id);
+
+  document.getElementById('rich-panel').classList.add('open');
+}
+
+function buildGallery() {
+  galleryIndex = 0;
+  const track = document.getElementById('rp-gallery-track');
+  const dots = document.getElementById('rp-gallery-dots');
+  track.innerHTML = '';
+  dots.innerHTML = '';
+
+  galleryImages.forEach((img, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'rp-gallery-slide';
+    slide.innerHTML = `<img src="${img.src}" alt="${img.caption}" loading="lazy">`;
+    track.appendChild(slide);
+    const dot = document.createElement('div');
+    dot.className = 'rp-gallery-dot' + (i === 0 ? ' active' : '');
+    dots.appendChild(dot);
+  });
+
+  // Caption overlay - reuse last child of gallery
+  let cap = document.querySelector('.rp-gallery-caption');
+  if (!cap) {
+    cap = document.createElement('div');
+    cap.className = 'rp-gallery-caption';
+    document.getElementById('rp-gallery').appendChild(cap);
+  }
+  cap.textContent = galleryImages[0].caption;
+}
+
+function galleryNav(dir) {
+  galleryIndex = (galleryIndex + dir + galleryImages.length) % galleryImages.length;
+  document.getElementById('rp-gallery-track').style.transform = `translateX(-${galleryIndex * 100}%)`;
+  document.querySelectorAll('.rp-gallery-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === galleryIndex);
+  });
+  document.querySelector('.rp-gallery-caption').textContent = galleryImages[galleryIndex].caption;
+}
+
+function updateRpButton(postId) {
+  const btn = document.getElementById('rp-btn-complete');
+  if (completed.has(postId)) {
+    btn.innerHTML = '&#10003; Fullf\u00f8rt';
+    btn.className = 'complete';
+  } else {
+    btn.textContent = 'Marker som fullf\u00f8rt';
+    btn.className = 'incomplete';
+  }
+}
+
+function rpToggleComplete() {
+  if (!richPanelPostId || completed.has(richPanelPostId)) return;
+  markComplete(richPanelPostId, false);
+  updateRpButton(richPanelPostId);
+  updateCompleteButton(richPanelPostId);
+}
+
+function closeRichPanel() {
+  document.getElementById('rich-panel').classList.remove('open');
+  richPanelPostId = null;
+}
 
 // ── SPLASH ──
 function startApp() {
