@@ -452,6 +452,8 @@ let completed = loadCompleted();
 let currentPost = null;
 let watchId = null;
 let userMarkerLayer = null;
+let lastUserLat = null;
+let lastUserLng = null;
 const markerRefs = {};
 
 function loadCompleted() {
@@ -610,6 +612,11 @@ function updateCompleteButton(postId) {
 }
 
 // ── PANEL ──
+function isNearPost(post) {
+  if (lastUserLat === null) return true; // GPS ikke aktiv - alltid åpent
+  return distanceM(lastUserLat, lastUserLng, post.lat, post.lng) <= 40;
+}
+
 function openPanel(post) {
   currentPost = post;
   const cfg = typeConfig[post.type];
@@ -621,17 +628,32 @@ function openPanel(post) {
   document.getElementById('panel-title').textContent = post.name;
   document.getElementById('panel-desc').textContent = post.desc;
   updateCompleteButton(post.id);
-  // If rich content exists, show rich panel instead of simple panel
-  if (richContent[post.id]) {
+  const near = isNearPost(post);
+  const hasRich = !!richContent[post.id];
+
+  if (hasRich && (near || done)) {
     openRichPanel(post);
-  } else {
-    document.getElementById('post-panel').classList.add('open');
+    map.panTo([post.lat, post.lng], { animate: true });
+    return;
   }
+
+  if (hasRich && !near && !done) {
+    const d = Math.round(distanceM(lastUserLat, lastUserLng, post.lat, post.lng));
+    document.getElementById('panel-desc').innerHTML =
+      '<div style="text-align:center;padding:16px 0"><span style="font-size:32px">&#128274;</span><br><br>Gå nærmere for å låse opp bilder og historisk innhold.<br><span style="font-size:12px;color:#aaa;margin-top:8px;display:block">Du er ' + d + '\u00a0m unna</span></div>';
+    document.getElementById('btn-complete').style.display = 'none';
+    document.getElementById('post-panel').classList.add('open');
+    map.panTo([post.lat, post.lng], { animate: true });
+    return;
+  }
+
+  document.getElementById('post-panel').classList.add('open');
   map.panTo([post.lat, post.lng], { animate: true });
 }
 
 function closePanel() {
   document.getElementById('post-panel').classList.remove('open');
+  document.getElementById('btn-complete').style.display = 'block';
   closeRichPanel();
   currentPost = null;
 }
@@ -719,6 +741,7 @@ function startWatching() {
       userMarkerLayer = L.layerGroup().addTo(map);
       L.circle([lat,lng], { radius: accuracy, color:'#4a80a4', fillColor:'#4a80a4', fillOpacity:.08, weight:1 }).addTo(userMarkerLayer);
       L.circleMarker([lat,lng], { radius:8, fillColor:'#4a80a4', fillOpacity:.95, color:'#fff', weight:2.5 }).addTo(userMarkerLayer);
+      lastUserLat = lat; lastUserLng = lng;
       updateNextBanner(lat, lng);
       posts.forEach(post => {
         if (completed.has(post.id)) return;
@@ -740,6 +763,7 @@ function locateMe() {
   navigator.geolocation.getCurrentPosition(
     pos => {
       const { latitude: lat, longitude: lng } = pos.coords;
+      lastUserLat = lat; lastUserLng = lng;
       map.setView([lat, lng], 16, { animate: true });
       btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Min posisjon';
       showToast('success', 'Posisjon funnet', 'GPS-sporing aktiv. Poster registreres automatisk.', '', 3000);
