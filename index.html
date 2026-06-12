@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a3a2a">
+<title>Akerselva - VAV 150 ar</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap');
+  :root {
+    --green:#1a3a2a; --green2:#2d5c40; --gold:#c9a84c;
+    --water:#4a80a4; --light:#f5f0e8; --text:#1a1a1a;
+    --muted:#6b6b6b; --va-red:#8b1a1a; --done:#27ae60;
+    --food-col:#b06000; --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--green);color:var(--text);overflow:hidden;}
+
+  #header{position:fixed;top:0;left:0;right:0;z-index:1000;background:var(--green);padding:10px 16px 8px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.4);}
+  #header .brand{display:flex;align-items:center;gap:10px;}
+  #header .logo-circle{width:38px;height:38px;border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  #header .logo-circle span{font-family:'Playfair Display',serif;font-size:13px;color:var(--gold);line-height:1;text-align:center;}
+  #header h1{font-family:'Playfair Display',serif;font-size:16px;color:#fff;line-height:1.1;}
+  #header h1 small{display:block;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--gold);font-weight:500;letter-spacing:1.5px;text-transform:uppercase;font-style:normal;}
+  #locate-btn{background:var(--gold);border:none;border-radius:8px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--green);cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+  #locate-btn:active{opacity:.8;}
+
+  #progress-bar-wrap{position:fixed;top:62px;left:0;right:0;z-index:999;background:rgba(26,58,42,.97);padding:5px 14px 6px;display:flex;align-items:center;gap:10px;}
+  #progress-track{flex:1;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden;}
+  #progress-fill{height:100%;background:var(--done);border-radius:3px;transition:width .5s ease;width:0%;}
+  #progress-label{font-size:11px;color:rgba(255,255,255,.7);white-space:nowrap;min-width:58px;text-align:right;}
+  #progress-label span{color:var(--done);font-weight:700;}
+
+  #map{position:fixed;top:88px;left:0;right:0;bottom:70px;z-index:1;}
+
+  #bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:1000;background:var(--green);border-top:1px solid rgba(201,168,76,.3);display:flex;height:70px;}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;color:rgba(255,255,255,.5);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;cursor:pointer;transition:color .2s;}
+  .nav-btn.active{color:var(--gold);}
+  .nav-btn svg{width:22px;height:22px;}
+
+  #post-panel{position:fixed;bottom:70px;left:0;right:0;z-index:900;background:var(--light);border-radius:12px 12px 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.3);transform:translateY(100%);transition:transform .35s cubic-bezier(.32,.72,0,1);max-height:72vh;overflow-y:auto;}
+  #post-panel.open{transform:translateY(0);}
+  .panel-handle{width:36px;height:4px;background:#ccc;border-radius:2px;margin:10px auto 0;}
+  .panel-content{padding:14px 18px 24px;}
+  .panel-type-tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;margin-bottom:8px;}
+  .tag-va{background:var(--va-red);color:#fff;}
+  .tag-activity{background:var(--green2);color:#fff;}
+  .tag-food{background:var(--food-col);color:#fff;}
+  .tag-end{background:var(--text);color:#fff;}
+  .tag-done{background:var(--done);color:#fff;}
+  .panel-num{float:right;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-left:12px;flex-shrink:0;}
+  .panel-num.va{background:var(--va-red);color:#fff;}
+  .panel-num.activity{background:var(--green2);color:#fff;}
+  .panel-num.food{background:var(--food-col);color:#fff;}
+  .panel-num.end{background:var(--text);color:#fff;}
+  .panel-num.done{background:var(--done);color:#fff;}
+  #panel-title{font-family:'Playfair Display',serif;font-size:19px;line-height:1.2;color:var(--text);margin-bottom:6px;}
+  #panel-desc{font-size:14px;line-height:1.6;color:var(--muted);margin-top:8px;clear:both;}
+  #panel-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;line-height:1;z-index:10;}
+
+  #btn-complete{display:block;width:100%;margin-top:16px;padding:13px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s,transform .1s;}
+  #btn-complete.incomplete{background:var(--done);color:#fff;}
+  #btn-complete.incomplete:active{transform:scale(.97);}
+  #btn-complete.complete{background:#e8f5e9;color:var(--done);cursor:default;}
+
+  #list-panel{position:fixed;top:88px;left:0;right:0;bottom:70px;z-index:800;background:var(--light);overflow-y:auto;display:none;padding:16px;}
+  #list-panel h2{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:14px;color:var(--green);}
+  .list-item{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid #e0dbd0;cursor:pointer;}
+  .list-badge{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:13px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  .list-badge.va{background:var(--va-red);color:#fff;}
+  .list-badge.activity{background:var(--green2);color:#fff;}
+  .list-badge.food{background:var(--food-col);color:#fff;}
+  .list-badge.end{background:var(--text);color:#fff;}
+  .list-badge.done{background:var(--done);color:#fff;}
+  .list-info{flex:1;min-width:0;}
+  .list-info strong{font-size:14px;display:block;line-height:1.3;}
+  .list-info span{font-size:11px;color:var(--muted);}
+  .list-check{margin-left:auto;font-size:18px;color:var(--done);flex-shrink:0;padding-top:2px;}
+  .list-arrow{margin-left:auto;color:#bbb;font-size:18px;flex-shrink:0;padding-top:2px;}
+
+  #info-panel{position:fixed;top:88px;left:0;right:0;bottom:70px;z-index:800;background:var(--light);overflow-y:auto;display:none;padding:20px 18px;}
+  #info-panel h2{font-family:'Playfair Display',serif;font-size:22px;color:var(--green);margin-bottom:4px;}
+  #info-panel .subtitle{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:16px;}
+  #info-panel p{font-size:14px;line-height:1.7;color:var(--muted);margin-bottom:12px;}
+  .legend-block{margin-top:20px;}
+  .legend-block h3{font-family:'Playfair Display',serif;font-size:16px;margin-bottom:10px;color:var(--text);}
+  .leg-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;}
+  .leg-dot{width:20px;height:20px;border-radius:50%;flex-shrink:0;}
+  .leg-dot.va{background:var(--va-red);}
+  .leg-dot.activity{background:var(--green2);}
+  .leg-dot.food{background:var(--food-col);}
+  .leg-dot.end{background:var(--text);}
+  .leg-dot.done{background:var(--done);}
+  #reset-btn{margin-top:20px;background:none;border:1px solid #ccc;border-radius:8px;padding:10px 16px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;display:block;}
+
+  #toast{position:fixed;top:100px;left:12px;right:12px;z-index:2000;background:#1a1a1a;color:#fff;border-radius:10px;padding:14px 40px 14px 16px;box-shadow:0 4px 20px rgba(0,0,0,.4);transform:translateY(-20px);opacity:0;transition:all .3s ease;pointer-events:none;}
+  #toast.show{transform:translateY(0);opacity:1;pointer-events:auto;}
+  #toast.error{border-left:4px solid #c0392b;}
+  #toast.success{border-left:4px solid var(--done);}
+  #toast.info{border-left:4px solid var(--gold);}
+  .toast-title{font-weight:700;font-size:14px;margin-bottom:4px;}
+  .toast-msg{font-size:12px;line-height:1.5;color:#ccc;}
+  .toast-steps{margin-top:8px;padding-top:8px;border-top:1px solid #333;font-size:11px;color:#aaa;line-height:1.7;display:none;}
+  .toast-close{position:absolute;top:10px;right:12px;background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0;}
+
+  #celebration{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s;}
+  #celebration.show{opacity:1;pointer-events:auto;}
+  .cel-box{background:#fff;border-radius:20px;padding:32px 28px;text-align:center;max-width:300px;margin:0 16px;}
+  .cel-emoji{font-size:52px;margin-bottom:12px;}
+  .cel-box h2{font-family:'Playfair Display',serif;font-size:24px;margin-bottom:8px;}
+  .cel-box p{font-size:14px;color:#666;line-height:1.6;margin-bottom:20px;}
+  .cel-box button{background:var(--green);color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;}
+
+  /* SHOW ROUTE BUTTON */
+  #fit-route-btn{position:fixed;top:100px;right:10px;z-index:850;background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:8px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.2);}
+  #fit-route-btn:active{background:#f4f4f4;}
+  #fit-route-btn svg{width:20px;height:20px;stroke:#444;}
+
+  .leaflet-container{font-family:'DM Sans',sans-serif;}
+
+
+  /* ── RICH CONTENT PANEL ── */
+  #rich-panel{position:fixed;inset:0;z-index:2500;background:#fff;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1);}
+  #rich-panel.open{transform:translateY(0);}
+  #rich-panel-header{padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;flex-shrink:0;}
+  #rich-panel-header .rp-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+  #rich-panel-close{background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;padding:0;}
+  #rich-panel-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+  /* Image gallery */
+  .rp-gallery{position:relative;background:#111;overflow:hidden;}
+  .rp-gallery-track{display:flex;transition:transform .35s ease;}
+  .rp-gallery-slide{flex-shrink:0;width:100%;}
+  .rp-gallery-slide img{width:100%;height:260px;object-fit:cover;display:block;}
+  .rp-gallery-caption{position:absolute;bottom:0;left:0;right:0;padding:8px 12px;background:linear-gradient(transparent,rgba(0,0,0,.65));font-size:11px;color:rgba(255,255,255,.85);font-style:italic;line-height:1.4;}
+  .rp-gallery-dots{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;gap:5px;}
+  .rp-gallery-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4);}
+  .rp-gallery-dot.active{background:#fff;}
+  .rp-gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.35);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:-14px;}
+  .rp-gallery-nav.prev{left:8px;}
+  .rp-gallery-nav.next{right:8px;}
+
+  /* Text content */
+  .rp-content{padding:18px 18px 32px;}
+  .rp-num{font-family:'Playfair Display',serif;font-size:13px;color:#aaa;margin-bottom:4px;}
+  .rp-title{font-family:'Playfair Display',serif;font-size:22px;line-height:1.2;color:#111;margin-bottom:12px;}
+  .rp-body{font-size:14px;line-height:1.75;color:#444;}
+  .rp-body p{margin-bottom:10px;}
+  .rp-source{margin-top:12px;font-size:11px;color:#aaa;font-style:italic;border-top:1px solid #f0f0f0;padding-top:10px;}
+
+  /* Complete button in rich panel */
+  #rp-btn-complete{display:block;width:calc(100% - 36px);margin:0 18px 24px;padding:14px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;}
+  #rp-btn-complete.incomplete{background:#27ae60;color:#fff;}
+  #rp-btn-complete.complete{background:#e8f5e9;color:#27ae60;cursor:default;}
+
+  /* ── SPLASH SCREEN ── */
+  #splash{position:fixed;inset:0;z-index:5000;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center;transition:opacity .5s ease;}
+  #splash.hidden{opacity:0;pointer-events:none;}
+  #splash .splash-logo{width:72px;height:72px;border:2.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+  #splash .splash-logo span{font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);line-height:1;}
+  #splash h2{font-family:'Playfair Display',serif;font-size:32px;color:#fff;line-height:1.1;margin-bottom:6px;}
+  #splash h2 em{display:block;font-style:normal;font-size:13px;color:var(--gold);letter-spacing:3px;text-transform:uppercase;font-family:'DM Sans',sans-serif;font-weight:500;margin-top:4px;}
+  #splash .splash-divider{width:40px;height:2px;background:var(--gold);margin:16px auto;}
+  #splash p{font-size:14px;color:rgba(255,255,255,.72);line-height:1.6;max-width:280px;margin-bottom:24px;}
+  #splash .splash-stats{display:flex;gap:28px;margin-bottom:28px;}
+  #splash .stat .val{font-family:'Playfair Display',serif;font-size:28px;color:#fff;display:block;line-height:1;}
+  #splash .stat .lbl{font-size:10px;color:rgba(255,255,255,.45);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;display:block;}
+  #splash-btn{background:var(--gold);color:var(--green);border:none;border-radius:14px;padding:16px 36px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:.3px;}
+  #splash-btn:active{opacity:.85;}
+  #splash .splash-hint{margin-top:14px;font-size:11px;color:rgba(255,255,255,.3);}
+
+  /* ── NEXT POST BANNER ── */
+  #next-banner{position:fixed;bottom:78px;left:12px;right:12px;z-index:850;background:rgba(20,38,28,.93);backdrop-filter:blur(8px);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;transition:all .35s ease;pointer-events:none;}
+  #next-banner.visible{transform:translateY(0);opacity:1;}
+  #next-banner .nb-badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+  #next-banner .nb-info{flex:1;min-width:0;}
+  #next-banner .nb-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.45);font-weight:600;}
+  #next-banner .nb-name{font-size:13px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #next-banner .nb-dist{font-size:14px;color:var(--gold);font-weight:700;flex-shrink:0;min-width:48px;text-align:right;}
+
+  /* ── MARKER POP ANIMATION ── */
+  @keyframes markerPop{0%{transform:scale(1)}30%{transform:scale(1.65)}65%{transform:scale(.85)}82%{transform:scale(1.12)}100%{transform:scale(1)}}
+  @keyframes rippleOut{0%{transform:scale(.8);opacity:.8}100%{transform:scale(3.8);opacity:0}}
+
+</style>
+</head>
+<body>
+
+
+
+<!-- RICH CONTENT PANEL -->
+<div id="rich-panel">
+  <div id="rich-panel-header">
+    <span id="rp-tag" class="rp-tag"></span>
+    <button id="rich-panel-close" onclick="closeRichPanel()">&#10005;</button>
+  </div>
+  <div id="rich-panel-body">
+    <div class="rp-gallery" id="rp-gallery" style="display:none">
+      <div class="rp-gallery-track" id="rp-gallery-track"></div>
+      <div class="rp-gallery-dots" id="rp-gallery-dots"></div>
+      <button class="rp-gallery-nav prev" id="rp-prev" onclick="galleryNav(-1)">&#8249;</button>
+      <button class="rp-gallery-nav next" id="rp-next" onclick="galleryNav(1)">&#8250;</button>
+    </div>
+    <div class="rp-content">
+      <div class="rp-num" id="rp-num"></div>
+      <div class="rp-title" id="rp-title"></div>
+      <div class="rp-body" id="rp-body"></div>
+      <div class="rp-source" id="rp-source"></div>
+    </div>
+    <button id="rp-btn-complete" onclick="rpToggleComplete()"></button>
+  </div>
+</div>
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <div class="splash-logo"><span>VAV<br>150</span></div>
+  <h2>Akerselva<em>Jubileumstur 2026</em></h2>
+  <div class="splash-divider"></div>
+  <p>Vandring langs Oslos historiske vannlivsåre &#8212; fra Gullhaug bru til Jakobs kirke.</p>
+  <div class="splash-stats">
+    <div class="stat"><span class="val">19</span><span class="lbl">Poster</span></div>
+    <div class="stat"><span class="val">4</span><span class="lbl">Kilometer</span></div>
+    <div class="stat"><span class="val">150</span><span class="lbl">År VAV</span></div>
+  </div>
+  <button id="splash-btn" onclick="startApp()">Start turen &#8594;</button>
+  <div class="splash-hint">Trykk for å åpne kartet</div>
+</div>
+
+<!-- NEXT POST BANNER -->
+<div id="next-banner">
+  <div class="nb-badge" id="nb-badge"></div>
+  <div class="nb-info">
+    <div class="nb-label">Neste post</div>
+    <div class="nb-name" id="nb-name"></div>
+  </div>
+  <div class="nb-dist" id="nb-dist"></div>
+</div>
+
+<div id="header">
+  <div class="brand">
+    <div class="logo-circle"><span>VAV<br>150</span></div>
+    <h1>Akerselva<small>Jubileumstur 2026</small></h1>
+  </div>
+  <button id="locate-btn" onclick="locateMe()">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    Min posisjon
+  </button>
+</div>
+
+<div id="progress-bar-wrap">
+  <div id="progress-track"><div id="progress-fill"></div></div>
+  <div id="progress-label"><span id="progress-count">0</span> / 18</div>
+</div>
+
+<div id="map"></div>
+
+<button id="fit-route-btn" onclick="fitRoute()" title="Vis hele ruten">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>
+  </svg>
+</button>
+
+<div id="post-panel">
+  <div class="panel-handle"></div>
+  <button id="panel-close" onclick="closePanel()">&#10005;</button>
+  <div class="panel-content">
+    <span id="panel-num" class="panel-num"></span>
+    <span id="panel-tag" class="panel-type-tag"></span>
+    <div id="panel-title"></div>
+    <div id="panel-desc"></div>
+    <button id="btn-complete" onclick="toggleComplete()"></button>
+  </div>
+</div>
+
+<div id="list-panel">
+  <h2>Alle poster</h2>
+  <div id="list-container"></div>
+</div>
+
+<div id="info-panel">
+  <h2>VAV 150 VAV 150 &#229;r#229;r</h2>
+  <div class="subtitle">Vann- og avl&#248;psetaten &middot; Oslo kommune</div>
+  <p>Jubileumstur langs Akerselva fra Gullhaug bru til Jakobs kirke &mdash; 19 poster, ca. 4 km. Postene registreres automatisk n&#229;r du kommer innenfor 40 meter. Bruk ogs&#229; knappen i hvert post-panel for manuell registrering.</p>
+  <div class="legend-block">
+    <h3>Tegnforklaring</h3>
+    <div class="leg-row"><div class="leg-dot va"></div><span>VA-historisk post</span></div>
+    <div class="leg-row"><div class="leg-dot activity"></div><span>Aktivitetspost / VAV-mesterskap</span></div>
+    <div class="leg-row"><div class="leg-dot food"></div><span>Matstasjon</span></div>
+    <div class="leg-row"><div class="leg-dot end"></div><span>Endepost / m&#229;l</span></div>
+    <div class="leg-row"><div class="leg-dot done"></div><span>Fullf&#248;rt post</span></div>
+  </div>
+  <button id="reset-btn" onclick="resetProgress()">Nullstill fremgang</button>
+  <p style="margin-top:16px;font-size:11px;color:#aaa;">Kart: &copy; OpenStreetMap-bidragsytere</p>
+</div>
+
+<div id="bottom-nav">
+  <button class="nav-btn active" id="nav-map" onclick="showView('map')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+    Kart
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="showView('list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
+    Postliste
+  </button>
+  <button class="nav-btn" id="nav-info" onclick="showView('info')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8" stroke-width="3" stroke-linecap="round"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+    Om turen
+  </button>
+</div>
+
+<div id="toast">
+  <button class="toast-close" onclick="hideToast()">&#10005;</button>
+  <div class="toast-title" id="toast-title"></div>
+  <div class="toast-msg" id="toast-msg"></div>
+  <div class="toast-steps" id="toast-steps"></div>
+</div>
+
+<div id="celebration">
+  <div class="cel-box">
+    <div class="cel-emoji">&#127881;</div>
+    <h2>Turen fullf&#248;rt!</h2>
+    <p>Gratulerer &mdash; alle 19 poster er besøkt! Velkommen til VAVs 150-&#229;rsfest ved Jakobs kirke!</p>
+    <button onclick="document.getElementById('celebration').classList.remove('show')">Lukk</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+
+// ── POSTER (fra Excel-oversikt) ──
+const posts = [
+  {id:1, type:'activity', name:'Oppstart – bli kjent',
+   desc:'Deltakerne på gruppa presenterer seg: 1) Navn, 2) hva man jobber med, og 3) svar på et dilemma: Ville du a) aldri mer kunne oppholde deg i Oslo, eller b) for alltid oppholde deg i Oslo?',
+   lat:59.948967, lng:10.767830},
+  {id:2, type:'va', name:'Informasjonsskilt',
+   desc:'VA-historisk informasjonsskilt om ledningsnettets utvikling og betydning for byens vekst.',
+   lat:59.949576, lng:10.764848},
+  {id:3, type:'va', name:'Christiania Spigerverk',
+   desc:'Bedriften ble anlagt i Nydalen i 1853. Vannet drev valsene og hammeren som fabrikkerte spiker og bruksgjenstander av rå- og skrapjern. På det meste jobbet rundt 2000 ved verket. Produksjonen av spiker fortsatte helt fram til 2010.',
+   lat:59.948349, lng:10.765001},
+  {id:4, type:'va', name:'Gammel ventil – Badebakken',
+   desc:'Gammel vannreguleringsventil. Et synlig bevis på det historiske ledningsnettet langs Akerselva.',
+   lat:59.946516, lng:10.764785},
+  {id:5, type:'va', name:'Elvekryssende vannledning',
+   desc:'Elvekryssende Ø800 mm vannledning rehabilitert med strømpe. Et eksempel på moderne rehabiliteringsteknologi i VAVs ledningsnett.',
+   lat:59.943903, lng:10.765849},
+  {id:6, type:'va', name:'Vannvokterboligen',
+   desc:'Bemannet post: Informasjon v. Lars Erik Berger og Mads Aulie.',
+   lat:59.941261, lng:10.764741},
+  {id:7, type:'activity', name:'Finn vann – ønskekvist',
+   desc:'Bemannet post. Prøv deg som vannkvist-bruker! Tradisjonell metode for å finne vann under bakken.',
+   lat:59.941261, lng:10.764741},
+  {id:8, type:'activity', name:'VAV-mesterskapet',
+   desc:'Bemannet aktivitetspost. Gruppene konkurrerer mot hverandre!',
+   lat:59.940767, lng:10.766139},
+  {id:9, type:'va', name:'1860-vanninntaket',
+   desc:'I 1860 ble vanninntaket flyttet fra Vøyenbrua til Bjølsendammene. Sagmugg hadde tettet trerørsledningene. I 1867 ble inntaket flyttet videre opp til Maridalsvannet.',
+   lat:59.940838, lng:10.767398},
+  {id:10, type:'va', name:'Bjølsen valsemølle og hovedinntaksrøret',
+   desc:'Obs! Kan være kronglete adkomst. Finn frem til utkikkspunkt. Bjølsen Valsemølle ble grunnlagt i 1884 og er fortsatt i drift. Her ligger også VAVs hovedinntaksrør fra Ø2000-prosjektet.',
+   lat:59.940084, lng:10.768109},
+  {id:11, type:'va', name:'Informasjonsskilt',
+   desc:'VA-historisk informasjonsskilt langs Akerselva.\n\n&#128248; BILDEUTFORDRING: Ta et gruppebilde her og last det opp på Viva Engage (VAV/Sosialt) med teksten «VAV 150 år – [gruppenavn]». Kreativitet belønnes!',
+   lat:59.936431, lng:10.757951},
+  {id:12, type:'va', name:'Historisk vannuttak – Vøyenbrua',
+   desc:'Like nord for broa står et av Oslo Byes Vels blå skilt til minne om byens første vanninntak anlagt før 1634. Sju ledninger ble anlagt herfra, den siste i 1845 forsynte Slottet.',
+   lat:59.933713, lng:10.756735},
+  {id:13, type:'va', name:'Elefanten ved Vøyenbrua',
+   desc:'Elefantskulptur i bronse av Petter Alexander Hepsøe (2015). Tittelen er «Memini Aqua» — husk vannet. En gave til byen fra Legat til Oslo bys forskjønnelse.',
+   lat:59.9336879, lng:10.7571678},
+  {id:14, type:'food', optional:true, name:'Hønse-Lovisas hus',
+   desc:'Hønse-Lovisas hus ved Beierbrua er kjent for sine gode vafler. Gå innom og få dere en vaffel!',
+   lat:59.930769, lng:10.757822},
+  {id:15, type:'activity', name:'Arbeidermuseet',
+   desc:'Holder åpent for VAV-ansatte. Ta en tur innom!',
+   lat:59.930891, lng:10.755812},
+  {id:16, type:'va', name:'Gyteplassen ved Kjærlighetsbrua',
+   desc:'Her er en av Akerselvas viktigste gyteplasser for laks og sjøørret – et bevis på at vannkvaliteten er dramatisk forbedret gjennom VAVs arbeid.\n\n&#128248; BILDEUTFORDRING: Ta et kreativt bilde av gruppa ved elva og last det opp på Viva Engage (VAV/Sosialt) med teksten «VAV 150 år – [gruppenavn]». Bildene vil bli vist på storskjerm senere!',
+   lat:59.925226, lng:10.752802},
+  {id:17, type:'va', name:'Laksetrappene',
+   desc:'Laksetrappene gjør det mulig for laks og sjøørret å vandre oppover Akerselva forbi fossefallene.',
+   lat:59.922919, lng:10.753484},
+  {id:18, type:'va', name:'VAVs målestasjon',
+   desc:'Besøk Mostafa på VAVs målestasjon ved Elvebakken. Han kan fortelle om hvordan denne stasjonen fungerer, hvordan vannkvaliteten overvåkes, og måledata bakover i historien.',
+   lat:59.919394, lng:10.753506},
+  {id:19, type:'food', optional:true, name:'Vannpost',
+   desc:'Frivillig post – fyll opp vannflaska her hvis du trenger påfyll på siste etappe ned til Jakobs kirke.',
+   lat:59.933830, lng:10.756291},
+  {id:20, type:'end', name:'Jakobs kirke – MÅL',
+   desc:'Gratulerer – du er i mål! Inngang fra Hausmanns gate. Her samles alle til feiring av VAVs 150-årsjubileum.',
+   lat:59.918107, lng:10.753944}
+];
+
+// Rute langs Akerselva med waypoints som følger elveløpet
+
+const typeConfig = {
+  va:       { label: 'VA-historisk',    cssClass: 'va',       tagClass: 'tag-va' },
+  activity: { label: 'Aktivitetspost',  cssClass: 'activity', tagClass: 'tag-activity' },
+  food:     { label: 'Matstasjon',      cssClass: 'food',     tagClass: 'tag-food' },
+  end:      { label: 'Endepost',        cssClass: 'end',      tagClass: 'tag-end' }
+};
+
+const GPS_RADIUS_M = 40;
+const TOTAL = posts.length;
+const TOTAL_REQUIRED = posts.filter(p => !p.optional).length; // excludes optional posts
+
+// ── STATE ──
+let completed = loadCompleted();
+let currentPost = null;
+let watchId = null;
+let userMarkerLayer = null;
+let lastUserLat = null;
+let lastUserLng = null;
+const markerRefs = {};
+
+function loadCompleted() {
+  try { return new Set(JSON.parse(localStorage.getItem('vav150_done') || '[]')); }
+  catch(e) { return new Set(); }
+}
+function saveCompleted() {
+  localStorage.setItem('vav150_done', JSON.stringify([...completed]));
+}
+
+// ── MAP ──
+const map = L.map('map', {
+  center: [59.934, 10.760],
+  zoom: 14,
+  zoomControl: false,
+  attributionControl: true
+});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+// ── RUTE (GeoJSON) ──
+const routeGeoJSON={"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"LineString","coordinates":[[10.768058,59.948933],[10.76796,59.949019],[10.767105,59.948856],[10.767011,59.948985],[10.766904,59.948985],[10.766831,59.949034],[10.766617,59.949002],[10.766079,59.949785],[10.765997,59.949856],[10.765856,59.949884],[10.764959,59.949809],[10.764838,59.949798],[10.764749,59.949785],[10.764846,59.949564],[10.764796,59.949441],[10.764925,59.949222],[10.76498,59.948467],[10.765015,59.948143],[10.76502,59.948027],[10.765097,59.947946],[10.765084,59.947678],[10.765084,59.947605],[10.765122,59.9475],[10.765124,59.947147],[10.764889,59.946796],[10.764837,59.946622],[10.764615,59.946313],[10.764572,59.946178],[10.764674,59.94562],[10.764521,59.945331],[10.765375,59.944376],[10.765636,59.943982],[10.765901,59.943855],[10.765974,59.943099],[10.765854,59.942501],[10.765289,59.942043],[10.765319,59.941769],[10.7649,59.941569],[10.764652,59.941285],[10.764714,59.941302],[10.764811,59.941435],[10.764959,59.941565],[10.765498,59.941396],[10.766109,59.941114],[10.766477,59.940889],[10.76681,59.940806],[10.767237,59.940759],[10.767537,59.940542],[10.767477,59.940285],[10.768058,59.940133],[10.767464,59.940065],[10.76693,59.939855],[10.766596,59.939767],[10.766045,59.939446],[10.765758,59.939343],[10.765456,59.939294],[10.765156,59.939217],[10.764648,59.939075],[10.764141,59.938914],[10.763741,59.938817],[10.763159,59.938532],[10.762894,59.938388],[10.762616,59.938148],[10.762621,59.937956],[10.762776,59.937762],[10.762834,59.937731],[10.762889,59.937716],[10.762909,59.937676],[10.762879,59.9376],[10.762867,59.937515],[10.762882,59.937452],[10.762939,59.93738],[10.76306,59.937249],[10.762961,59.937132],[10.761397,59.93674],[10.76079,59.936755],[10.760495,59.936926],[10.760316,59.936979],[10.760067,59.93699],[10.759866,59.93699],[10.759687,59.936945],[10.7584,59.936567],[10.75731,59.936128],[10.757181,59.936045],[10.75707,59.935856],[10.756959,59.935548],[10.756728,59.93524],[10.756719,59.934679],[10.756617,59.934443],[10.756659,59.934034],[10.756723,59.933717],[10.75683,59.933663],[10.757236,59.933599],[10.757222,59.933657],[10.757267,59.933593],[10.757343,59.933569],[10.757416,59.93353],[10.757403,59.93341],[10.757636,59.933025],[10.758218,59.932609],[10.758274,59.932095],[10.758449,59.931758],[10.758449,59.931579],[10.758291,59.931377],[10.758043,59.931247],[10.757958,59.931137],[10.757981,59.930911],[10.757549,59.93095],[10.756951,59.931001],[10.756398,59.930912],[10.755841,59.93088],[10.756398,59.930884],[10.756969,59.930986],[10.75747,59.930943],[10.757983,59.930865],[10.757868,59.930748],[10.757729,59.93072],[10.757612,59.930668],[10.757556,59.930589],[10.757565,59.930409],[10.757505,59.9303],[10.757092,59.929938],[10.756874,59.929865],[10.756558,59.929649],[10.755922,59.929184],[10.755649,59.928847],[10.755465,59.928549],[10.755395,59.928372],[10.75534,59.92807],[10.755134,59.927473],[10.75507,59.927379],[10.754984,59.927279],[10.754861,59.927187],[10.754694,59.927107],[10.753412,59.926752],[10.753198,59.926664],[10.752771,59.926008],[10.752761,59.925978],[10.752838,59.92595],[10.752932,59.92587],[10.752975,59.925714],[10.752962,59.925551],[10.752817,59.925284],[10.752637,59.925089],[10.752264,59.924692],[10.752341,59.924425],[10.752542,59.924144],[10.752845,59.923968],[10.753174,59.924208],[10.753562,59.924119],[10.753983,59.924036],[10.754072,59.923954],[10.75409,59.923917],[10.754088,59.923877],[10.75405,59.923829],[10.754001,59.923793],[10.753776,59.923693],[10.753745,59.923666],[10.753745,59.923602],[10.753745,59.923565],[10.7538,59.923521],[10.753797,59.923445],[10.753718,59.92323],[10.753483,59.92298],[10.753457,59.922947],[10.753459,59.922881],[10.753407,59.922797],[10.753376,59.922748],[10.753407,59.922512],[10.753409,59.922494],[10.75341,59.922479],[10.753458,59.922329],[10.75427,59.92145],[10.754446,59.921216],[10.754451,59.92109],[10.754408,59.92067],[10.754151,59.920414],[10.753827,59.920196],[10.753438,59.920017],[10.753134,59.919804],[10.753245,59.919606],[10.753438,59.919566],[10.75363,59.919527],[10.754547,59.919524],[10.754539,59.919342],[10.753809,59.919353],[10.754523,59.919263],[10.754805,59.919248],[10.75516,59.919088],[10.75528,59.918938],[10.75531,59.918706],[10.754833,59.918469],[10.754534,59.918347],[10.753876,59.918088]]},"properties":{}}]};
+
+L.geoJSON(routeGeoJSON, {
+  style: {
+    color: '#2d6a4f',
+    weight: 4,
+    opacity: 0.75,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }
+}).addTo(map);
+
+// Rute langs elva
+
+// ── MARKER HELPERS ──
+function markerBg(post) {
+  if (completed.has(post.id)) return '#27ae60';
+  return { va:'#8b1a1a', activity:'#2d5c40', food:'#b06000', end:'#1a1a1a' }[post.type];
+}
+function markerTextColor(post) {
+  if (completed.has(post.id)) return '#fff';
+  return '#fff';
+}
+function markerLabel(post) {
+  if (completed.has(post.id)) return '&#10003;';
+  return post.id === 19 ? 'MÅL' : post.id;
+}
+
+function buildIcon(post) {
+  const bg = markerBg(post);
+  const label = completed.has(post.id) ? '&#10003;' : (post.id === 19 ? 'M' : post.id);
+  const fs = completed.has(post.id) ? '16px' : (post.id === 19 ? '9px' : (post.id > 9 ? '11px' : '13px'));
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:32px;height:32px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:${fs};font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;background:${bg};color:#fff;opacity:${completed.has(post.id)?'.75':'1'}">${label}</div>`,
+    iconSize: [32,32], iconAnchor: [16,16], popupAnchor: [0,-20]
+  });
+}
+
+function refreshMarker(post) {
+  if (markerRefs[post.id]) markerRefs[post.id].setIcon(buildIcon(post));
+}
+
+// Spread overlapping posts in a small arc around their shared coordinate
+// Groups: [6,7,8], [11,12,13], [14,15]
+const offsetGroups = [
+  [6, 7]
+];
+// Posts 12/13/14 and 8/11/15 have unique coordinates - no offset needed
+
+// Offset distance in degrees (~18m at Oslo latitude)
+const OFFSET = 0.00016;
+
+function getOffset(postId) {
+  for (const group of offsetGroups) {
+    const idx = group.indexOf(postId);
+    if (idx === -1) continue;
+    const n = group.length;
+    // Spread evenly in a horizontal row: left, center, right
+    // For 3: -1, 0, +1 offset; for 2: -0.5, +0.5
+    const step = (idx - (n - 1) / 2);
+    return { dlat: OFFSET * 0.5, dlng: OFFSET * step * 1.6 };
+  }
+  return { dlat: 0, dlng: 0 };
+}
+
+posts.forEach(post => {
+  const off = getOffset(post.id);
+  const lat = post.lat + off.dlat;
+  const lng = post.lng + off.dlng;
+  const m = L.marker([lat, lng], { icon: buildIcon(post) })
+    .addTo(map)
+    .on('click', () => openPanel(post));
+  markerRefs[post.id] = m;
+});
+
+// START label
+L.marker([posts[0].lat, posts[0].lng], {
+  icon: L.divIcon({
+    className: '',
+    html: `<div style="background:#1a3a2a;color:#c9a84c;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;letter-spacing:1px;margin-top:-30px;margin-left:16px;box-shadow:0 1px 4px rgba(0,0,0,.3)">START</div>`,
+    iconSize: [50,16], iconAnchor: [0,0]
+  })
+}).addTo(map);
+
+// ── PROGRESS ──
+function updateProgress() {
+  const n = completed.size;
+  document.getElementById('progress-count').textContent = n;
+  const countRequired = [...completed].filter(id => {
+    const p = posts.find(q => q.id === id);
+    return p && !p.optional;
+  }).length;
+  document.getElementById('progress-count').textContent = countRequired;
+  document.getElementById('progress-fill').style.width = (countRequired / TOTAL_REQUIRED * 100) + '%';
+}
+updateProgress();
+
+// ── COMPLETE ──
+// Completion queue - prevents toast/panel spam when multiple posts register at once
+const completionQueue = [];
+let processingQueue = false;
+
+function processQueue() {
+  if (processingQueue || completionQueue.length === 0) return;
+  processingQueue = true;
+  const postId = completionQueue.shift();
+  const post = posts.find(p => p.id === postId);
+
+  // Vibrate (Android + some browsers; iOS Safari doesn't support)
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+  showToast('success', '\u2713 Post ' + postId + ' registrert!', post.name, '', 2500);
+
+  // Auto-open rich content if it exists
+  if (richContent[postId]) {
+    setTimeout(() => openRichPanel(post), 400);
+  }
+
+  // Process next in queue after delay
+  setTimeout(() => {
+    processingQueue = false;
+    processQueue();
+  }, 3000);
+}
+
+function markComplete(postId, auto) {
+  if (completed.has(postId)) return;
+  completed.add(postId);
+  saveCompleted();
+  updateProgress();
+  const post = posts.find(p => p.id === postId);
+  refreshMarker(post);
+  animateMarker(postId);
+  buildList();
+  if (auto) {
+    completionQueue.push(postId);
+    processQueue();
+  }
+  if (currentPost && currentPost.id === postId) updateCompleteButton(postId);
+  const requiredDone = posts.filter(p => !p.optional && completed.has(p.id)).length;
+  if (requiredDone === TOTAL_REQUIRED) {
+    setTimeout(() => document.getElementById('celebration').classList.add('show'), 1500);
+  }
+}
+
+function toggleComplete() {
+  if (!currentPost || completed.has(currentPost.id)) return;
+  markComplete(currentPost.id, false);
+  updateCompleteButton(currentPost.id);
+}
+
+function updateCompleteButton(postId) {
+  const btn = document.getElementById('btn-complete');
+  if (completed.has(postId)) {
+    btn.textContent = '&#10003; Fullfort';
+    btn.innerHTML = '&#10003; Fullf&#248;rt';
+    btn.className = 'complete';
+  } else {
+    btn.textContent = 'Marker som fullfort';
+    btn.innerHTML = 'Marker som fullf&#248;rt';
+    btn.className = 'incomplete';
+  }
+}
+
+// ── PANEL ──
+function isNearPost(post) {
+  if (lastUserLat === null) return true; // GPS ikke aktiv - alltid åpent
+  return distanceM(lastUserLat, lastUserLng, post.lat, post.lng) <= 40;
+}
+
+function openPanel(post) {
+  currentPost = post;
+  const cfg = typeConfig[post.type];
+  const done = completed.has(post.id);
+  document.getElementById('panel-num').innerHTML = done ? '&#10003;' : (post.id === 19 ? 'MAL' : post.id);
+  document.getElementById('panel-num').className = 'panel-num ' + (done ? 'done' : cfg.cssClass);
+  document.getElementById('panel-tag').textContent = done ? 'Fullført' : (cfg.label + (post.optional ? ' · valgfri' : ''));
+  document.getElementById('panel-tag').className = 'panel-type-tag ' + (done ? 'tag-done' : cfg.tagClass);
+  document.getElementById('panel-title').textContent = post.name;
+  // Render line breaks and style the photo challenge callout
+  const descHtml = post.desc
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/(&#128248; BILDEUTFORDRING:)/g,
+      '<span style="display:inline-block;margin-top:10px;background:#1a3a2a;color:#c9a84c;font-size:11px;font-weight:700;padding:4px 8px;border-radius:5px;letter-spacing:.5px">&#128248; BILDEUTFORDRING</span><br>');
+  document.getElementById('panel-desc').innerHTML = descHtml;
+  updateCompleteButton(post.id);
+  const near = isNearPost(post);
+  const hasRich = !!richContent[post.id];
+
+  if (hasRich && (near || done)) {
+    openRichPanel(post);
+    map.panTo([post.lat, post.lng], { animate: true });
+    return;
+  }
+
+  if (hasRich && !near && !done) {
+    const d = Math.round(distanceM(lastUserLat, lastUserLng, post.lat, post.lng));
+    document.getElementById('panel-desc').innerHTML =
+      '<div style="text-align:center;padding:16px 0"><span style="font-size:32px">&#128274;</span><br><br>Gå nærmere for å låse opp bilder og historisk innhold.<br><span style="font-size:12px;color:#aaa;margin-top:8px;display:block">Du er ' + d + '\u00a0m unna</span></div>';
+    document.getElementById('btn-complete').style.display = 'none';
+    document.getElementById('post-panel').classList.add('open');
+    map.panTo([post.lat, post.lng], { animate: true });
+    return;
+  }
+
+  document.getElementById('post-panel').classList.add('open');
+  map.panTo([post.lat, post.lng], { animate: true });
+}
+
+function closePanel() {
+  document.getElementById('post-panel').classList.remove('open');
+  document.getElementById('btn-complete').style.display = 'block';
+  closeRichPanel();
+  currentPost = null;
+}
+
+// ── LIST ──
+function buildList() {
+  const c = document.getElementById('list-container');
+  c.innerHTML = '';
+  posts.forEach(post => {
+    const cfg = typeConfig[post.type];
+    const done = completed.has(post.id);
+    const el = document.createElement('div');
+    el.className = 'list-item';
+    const badgeLabel = done ? '&#10003;' : (post.id === 19 ? 'M' : post.id);
+    el.innerHTML = `
+      <div class="list-badge ${done ? 'done' : cfg.cssClass}">${badgeLabel}</div>
+      <div class="list-info">
+        <strong>${post.name}</strong>
+        <span>${done ? 'Fullført' : cfg.label}${post.optional && !done ? ' · valgfri' : ''}</span>
+      </div>
+      ${done ? '<span class="list-check">&#10003;</span>' : '<span class="list-arrow">&#8250;</span>'}
+    `;
+    el.onclick = () => { showView('map'); setTimeout(() => openPanel(post), 100); };
+    c.appendChild(el);
+  });
+}
+buildList();
+
+// ── RESET ──
+function resetProgress() {
+  if (!confirm('Nullstille all fremgang?')) return;
+  completed.clear();
+  saveCompleted();
+  updateProgress();
+  posts.forEach(p => refreshMarker(p));
+  buildList();
+  showToast('info', 'Fremgang nullstilt', 'Alle poster er merket som ubesøkt.', '', 3000);
+}
+
+// ── VIEW ──
+function showView(view) {
+  document.getElementById('list-panel').style.display = 'none';
+  document.getElementById('info-panel').style.display = 'none';
+  closePanel();
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if (view === 'list') {
+    document.getElementById('list-panel').style.display = 'block';
+    document.getElementById('nav-list').classList.add('active');
+  } else if (view === 'info') {
+    document.getElementById('info-panel').style.display = 'block';
+    document.getElementById('nav-info').classList.add('active');
+  } else {
+    document.getElementById('nav-map').classList.add('active');
+  }
+}
+
+// ── TOAST ──
+let toastTimer = null;
+function showToast(type, title, msg, steps, duration) {
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-msg').textContent = msg;
+  const stepsEl = document.getElementById('toast-steps');
+  stepsEl.innerHTML = steps;
+  stepsEl.style.display = steps ? 'block' : 'none';
+  document.getElementById('toast').className = 'show ' + type;
+  if (toastTimer) clearTimeout(toastTimer);
+  if (duration) toastTimer = setTimeout(hideToast, duration);
+}
+function hideToast() { document.getElementById('toast').className = ''; }
+
+// ── HAVERSINE ──
+function distanceM(lat1, lng1, lat2, lng2) {
+  const R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── GPS ──
+function startWatching() {
+  if (!navigator.geolocation || watchId) return;
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      if (userMarkerLayer) userMarkerLayer.remove();
+      userMarkerLayer = L.layerGroup().addTo(map);
+      L.circle([lat,lng], { radius: accuracy, color:'#4a80a4', fillColor:'#4a80a4', fillOpacity:.08, weight:1 }).addTo(userMarkerLayer);
+      L.circleMarker([lat,lng], { radius:8, fillColor:'#4a80a4', fillOpacity:.95, color:'#fff', weight:2.5 }).addTo(userMarkerLayer);
+      lastUserLat = lat; lastUserLng = lng;
+      updateNextBanner(lat, lng);
+      posts.forEach(post => {
+        if (completed.has(post.id)) return;
+        if (distanceM(lat, lng, post.lat, post.lng) <= GPS_RADIUS_M) markComplete(post.id, true);
+      });
+    },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function locateMe() {
+  const btn = document.getElementById('locate-btn');
+  if (!navigator.geolocation) {
+    showToast('error', 'Ikke stottet', 'Nettleseren stoetter ikke geolokalisering.', '', 5000);
+    return;
+  }
+  btn.innerHTML = '... Henter';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      lastUserLat = lat; lastUserLng = lng;
+      map.setView([lat, lng], 16, { animate: true });
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Min posisjon';
+      showToast('success', 'Posisjon funnet', 'GPS-sporing aktiv. Poster registreres automatisk.', '', 3000);
+      startWatching();
+    },
+    err => {
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Min posisjon';
+      const isIOS = /iPhone|iPad/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      let title = 'Posisjon blokkert', msg = 'Nettleseren mangler tillatelse til posisjon.', steps = '';
+      if (err.code === 1) {
+        if (isIOS) steps = 'iPhone: Innstillinger &#x2192; Personvern &#x2192; Posisjonsdeling &#x2192; Safari &#x2192; Tillat';
+        else if (isAndroid) steps = 'Android: Trykk hengelasen i adressefeltet &#x2192; Tillatelser &#x2192; Posisjon &#x2192; Tillat';
+        else steps = 'PC: Klikk hengelasen i adressefeltet &#x2192; Nettstedtillatelser &#x2192; Posisjon &#x2192; Tillat';
+      } else if (err.code === 2) { title='GPS utilgjengelig'; msg='Sjekk at posisjon er pa i enhetsinnstillingene.'; }
+      else if (err.code === 3) { title='Tidsavbrudd'; msg='Proev igjen utendoers.'; }
+      showToast('error', title, msg, steps, 0);
+    },
+    { timeout: 10000, maximumAge: 30000, enableHighAccuracy: true }
+  );
+}
+
+
+
+// ── RICH CONTENT DATA ──
+const richContent = {
+  3: {
+    images: [
+      {src:'img/Bilde10.jpg', caption:'Christiania Spigerverk med Akerselva i forgrunnen. Foto: Arbeiderbevegelsens arkiv og bibliotek.'},
+      {src:'img/Bilde11.jpg', caption:'Produksjonshallen ved Christiania Spigerverk. Foto: Thomassen/Norsk Teknisk Museum.'}
+    ],
+    body: '<p>Christiania Spigerverk ble anlagt i Nydalen i 1853, på østsiden av elva rett overfor Gullhaug bru. Fallrettighetene til Lillo sag var viktig for lokaliseringen — vannet drev valsene og hammeren som fabrikkerte spiker og bruksgjenstander av rå- og skrapjern.</p><p>Fra tidlig 1900-tall produserte verket også stål og råjern til egen produksjon. På det meste jobbet rundt 2000 mennesker ved verket, som strakte seg over 500 meter langs elva og hadde egen hestesporvogn.</p><p>Produksjonen av spiker fortsatte i Nydalen helt fram til 2010. Hallene ble da revet for å gi plass til boliger og kontorbygg. Ved 100-årsjubileet i 1953 ga Spigerverket «Spikersuppa» i gave til Oslo kommune.</p>',
+    source: 'Spigerverket ble i løpet av 1900-tallet et av Norges ledende industrikonsern.'
+  },
+  5: {
+    images: [
+      {src:'img/Bilde2.jpg', caption:'Innsiden av kum med elvekryssende ledning og røtter. Foto: VAV.'},
+      {src:'img/Bilde3.jpg', caption:'Oversikt over krysningspunktet langs elva. Foto: VAV.'}
+    ],
+    body: '<p>Den elvekryssende Ø800 mm vannledningen er rehabilitert med strømpeteknikk — en moderne metode der en ny rørvegg støpes inne i den eksisterende ledningen uten graving.</p><p>Ledningen krysser Akerselva og sørger for å forsyne begge sider med rent vann. Bildet inne i kummen viser at naturen ikke er langt unna — røtter trenger inn selv i overdekkede anlegg under bakkenivå.</p>',
+    source: 'Et konkret eksempel på VAVs arbeid med å vedlikeholde infrastrukturen uten store naturinngrep.'
+  },
+  6: {
+    images: [
+      {src:'img/Bilde5.jpg', caption:'Vannvokterboligen på Bjølsen. Foto: VAV.'}
+    ],
+    body: '<p>Vannvokterboligen er oppført i forbindelse med at byens vanninntak ble flyttet fra Bjølsendammene opp til Maridalsvannet i 1867. Maridalsvannet ligger 150 moh., og de gamle trerørene tålte ikke det nye vanntrykket.</p><p>Å nullstille trykket var billigere enn å legge om hele ledningsnettet. Derfor ble det gravd ut og murt opp to store trykkreduksjonsbasseng på Bjølsen. I første etasje var instrumentene for måling av trykk og vannmengde. I annen etasje bodde inspektøren på tre rom og kjøkken. Huset tjente som vannvokterbolig fram til 1917.</p>',
+    source: 'Huset har fått datidens mest fornemme form, i slekt med herskapshusene i Homansbyen.'
+  },
+  9: {
+    images: [
+      {src:'img/Bilde4.jpg', caption:'Treschows bru ved Bjølsendammene, maleri av Frits Thaulow, ca. 1895. Lillehammer kunstmuseum.'}
+    ],
+    body: '<p>I andre halvdel av 1800-tallet var sagvirksomheten langs Akerselva blitt så omfattende at sagmugg stoppet til trerørsledningene for drikkevann. I 1860 ble vanninntaket derfor flyttet fra Vøyenbrua og ca. 1 km opp til Bjølsendammene, rett overfor Treschows bru på Bjølsen.</p><p>Problemer med å skaffe nok vann, kombinert med utbrudd av kolera og tyfoidfeber, ga støtet til at selve vanninntaket ble flyttet opp til Maridalsvannet i 1867.</p>',
+    source: 'Dammene eksisterer ikke lenger.'
+  },
+  10: {
+    images: [
+      {src:'img/Bilde6.jpg', caption:'Bjølsen valsemølle med Bjølsenfossen, Akerselvas største fall. Foto: Oslo Museum.'},
+      {src:'img/Bilde7.jpg', caption:'Bjølsen Valsemølle tok tidlig i bruk valsestoler. Foto: Wilse/Oslo Museum.'}
+    ],
+    body: '<p>Bjølsen Valsemølle ble grunnlagt i 1884 og ble Norges ledende innen kornforedling. Den voldsomme befolkningsveksten i Christiania gjorde matmel til et lukrativt produkt.</p><p>Det er ikke tilfeldig at møllen ligger ved Bjølsenfossen, Akerselvas største fall. Valsemøllene ble drevet med vannkraft, og rettighetene til elvefallene var avgjørende. Bedriften er den som lengst har hatt produksjon ved Akerselva og er fortsatt i drift.</p>',
+    source: 'Fossen ligger inne på Ceralias eiendom og er ikke åpen for publikum.'
+  },
+  12: {
+    images: [
+      {src:'img/Bilde8.jpg', caption:'Gutter leker med båt ved Vøyenbrua. Foto: Ukjent/Oslo byarkiv.'}
+    ],
+    body: '<p>Like nord for broa på Sagene står et av Oslo Byes Vels blå skilt til minne om byens første vanninntak. Det var anlagt før 1634, og en trerørsledning gikk herfra til Akershus festning — «Festningsledningen».</p><p>I alt sju ledninger ble anlagt herfra. Den siste i 1845, som forsynte Slottet og ble kalt «Slottsledningen». Vanninntaket ble ikke nedlagt før i 1879.</p>',
+    source: ''
+  },
+  13: {
+    images: [
+      {src:'img/Bilde9.jpg', caption:'«Memini Aqua» av Petter Alexander Hepsøe (2015). Foto: Hepsøe.'}
+    ],
+    body: '<p>På den andre siden av elva ved det gamle vanninntaket står en elefantskulptur i bronse, utført av Petter Alexander Hepsøe i 2015. Tittelen er «Memini Aqua» — husk vannet.</p><p>Skulpturen er en gave til byen fra Legat til Oslo bys forskjønnelse, og en påminnelse om vannets betydning for byens liv og vekst.</p>',
+    source: ''
+  },
+  18: {
+    images: [
+      {src:'img/Media1.jpg', caption:'VAVs målestasjon ved Akerselva. Foto: VAV.'},
+      {src:'img/Media2.jpg', caption:'Målestasjonen sett fra elvebredden. Foto: VAV.'}
+    ],
+    body: '<p>VAVs målestasjon ved Elvebakken overvåker kontinuerlig vannkvaliteten i Akerselva. Stasjonen registrerer parametere som temperatur, surhetsgrad (pH), oksygeninnhold og partikkelinnhold i vannet.</p><p>Data fra målestasjonen går flere år tilbake i tid, og brukes til å dokumentere hvordan vannkvaliteten i elva har utviklet seg — og til å varsle raskt dersom noe uventet skjer oppstrøms.</p><p>Mostafa fra VAV er på plass og kan fortelle mer om hvordan stasjonen fungerer i praksis.</p>',
+    source: ''
+  },
+  15: {
+    images: [
+      {src:'img/Bilde1.jpg', caption:'Arbeidermuseet / Oslo Museum i Sagveien. Foto: VAV.'}
+    ],
+    body: '<p>Oslo Museum — Arbeidermuseet holder til i Sagveien 28, rett ved Akerselva. Museet formidler arbeiderklassens og industrisamfunnets historie i Oslo.</p><p>Under jubileumsvandringen holder museet åpent spesielt for VAV-ansatte. Ta en tur innom og opplev utstillingene om byens industri- og arbeidsliv langs elva.</p>',
+    source: 'Oslo Museum, Arbeidermuseet. oslomuseum.no'
+  }
+};
+
+let galleryIndex = 0;
+let galleryImages = [];
+let richPanelPostId = null;
+
+function openRichPanel(post) {
+  richPanelPostId = post.id;
+  const cfg = typeConfig[post.type];
+  const done = completed.has(post.id);
+  const rc = richContent[post.id];
+
+  // Header tag
+  const tag = document.getElementById('rp-tag');
+  tag.textContent = cfg.label;
+  tag.className = 'rp-tag ' + cfg.tagClass;
+
+  // Text content
+  document.getElementById('rp-num').textContent = 'Post ' + post.id;
+  document.getElementById('rp-title').textContent = post.name;
+  document.getElementById('rp-body').innerHTML = rc ? rc.body : '<p>' + post.desc + '</p>';
+  document.getElementById('rp-source').textContent = rc && rc.source ? rc.source : '';
+  document.getElementById('rp-source').style.display = rc && rc.source ? 'block' : 'none';
+
+  // Gallery
+  const gallery = document.getElementById('rp-gallery');
+  if (rc && rc.images && rc.images.length > 0) {
+    galleryImages = rc.images;
+    gallery.style.display = 'block';
+    buildGallery();
+    // Show/hide nav arrows
+    document.getElementById('rp-prev').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+    document.getElementById('rp-next').style.display = galleryImages.length > 1 ? 'flex' : 'none';
+  } else {
+    gallery.style.display = 'none';
+    galleryImages = [];
+  }
+
+  // Complete button
+  updateRpButton(post.id);
+
+  document.getElementById('rich-panel').classList.add('open');
+}
+
+function buildGallery() {
+  galleryIndex = 0;
+  const track = document.getElementById('rp-gallery-track');
+  const dots = document.getElementById('rp-gallery-dots');
+  track.innerHTML = '';
+  dots.innerHTML = '';
+
+  galleryImages.forEach((img, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'rp-gallery-slide';
+    slide.innerHTML = `<img src="${img.src}" alt="${img.caption}" loading="lazy">`;
+    track.appendChild(slide);
+    const dot = document.createElement('div');
+    dot.className = 'rp-gallery-dot' + (i === 0 ? ' active' : '');
+    dots.appendChild(dot);
+  });
+
+  // Caption overlay - reuse last child of gallery
+  let cap = document.querySelector('.rp-gallery-caption');
+  if (!cap) {
+    cap = document.createElement('div');
+    cap.className = 'rp-gallery-caption';
+    document.getElementById('rp-gallery').appendChild(cap);
+  }
+  cap.textContent = galleryImages[0].caption;
+}
+
+function galleryNav(dir) {
+  galleryIndex = (galleryIndex + dir + galleryImages.length) % galleryImages.length;
+  document.getElementById('rp-gallery-track').style.transform = `translateX(-${galleryIndex * 100}%)`;
+  document.querySelectorAll('.rp-gallery-dot').forEach((d, i) => {
+    d.classList.toggle('active', i === galleryIndex);
+  });
+  document.querySelector('.rp-gallery-caption').textContent = galleryImages[galleryIndex].caption;
+}
+
+function updateRpButton(postId) {
+  const btn = document.getElementById('rp-btn-complete');
+  if (completed.has(postId)) {
+    btn.innerHTML = '&#10003; Fullf\u00f8rt';
+    btn.className = 'complete';
+  } else {
+    btn.textContent = 'Marker som fullf\u00f8rt';
+    btn.className = 'incomplete';
+  }
+}
+
+function rpToggleComplete() {
+  if (!richPanelPostId || completed.has(richPanelPostId)) return;
+  markComplete(richPanelPostId, false);
+  updateRpButton(richPanelPostId);
+  updateCompleteButton(richPanelPostId);
+}
+
+function closeRichPanel() {
+  document.getElementById('rich-panel').classList.remove('open');
+  richPanelPostId = null;
+}
+
+// ── SPLASH ──
+function startApp() {
+  const splash = document.getElementById('splash');
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.style.display = 'none'; }, 500);
+  // Auto-start GPS if permission already granted
+  if (navigator.geolocation && navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(r => {
+      if (r.state === 'granted') startWatching();
+    });
+  }
+}
+// Show splash only on first visit today
+const todayKey = 'vav150_seen_' + new Date().toDateString();
+if (localStorage.getItem(todayKey)) {
+  document.getElementById('splash').style.display = 'none';
+} else {
+  localStorage.setItem(todayKey, '1');
+}
+
+// ── NEXT POST BANNER ──
+const bgColors = { va:'#8b1a1a', activity:'#2d5c40', food:'#b06000', end:'#1a1a1a' };
+
+function updateNextBanner(userLat, userLng) {
+  // Find next non-optional, non-completed post in sequence
+  const next = posts.find(p => !completed.has(p.id) && !p.optional);
+  if (!next) { document.getElementById('next-banner').classList.remove('visible'); return; }
+
+  const d = distanceM(userLat, userLng, next.lat, next.lng);
+  const distStr = d < 1000 ? Math.round(d) + ' m' : (d/1000).toFixed(1) + ' km';
+
+  const badge = document.getElementById('nb-badge');
+  badge.textContent = next.id === 19 ? 'M' : next.id;
+  badge.style.background = bgColors[next.type];
+  document.getElementById('nb-name').textContent = next.name;
+  document.getElementById('nb-dist').textContent = distStr;
+  document.getElementById('next-banner').classList.add('visible');
+}
+
+// ── MARKER POP + RIPPLE ──
+function animateMarker(postId) {
+  const m = markerRefs[postId];
+  if (!m) return;
+  const el = m.getElement();
+  if (!el) return;
+  const inner = el.querySelector('div');
+
+  // Pop animation on the inner div only - does not affect marker position
+  if (inner) {
+    inner.classList.remove('marker-pop');
+    void inner.offsetWidth;
+    inner.classList.add('marker-pop');
+    setTimeout(() => inner.classList.remove('marker-pop'), 600);
+  }
+
+  // Ripple: use a Leaflet circleMarker on the map instead of DOM manipulation
+  // This avoids any position shift on the marker element
+  const pos = m.getLatLng();
+  const rippleCircle = L.circleMarker(pos, {
+    radius: 18,
+    color: '#27ae60',
+    fillColor: 'transparent',
+    fillOpacity: 0,
+    weight: 2.5,
+    opacity: 0.9,
+    interactive: false
+  }).addTo(map);
+
+  let opacity = 0.9;
+  let radius = 18;
+  const interval = setInterval(() => {
+    radius += 4;
+    opacity -= 0.12;
+    if (opacity <= 0) {
+      clearInterval(interval);
+      rippleCircle.remove();
+      return;
+    }
+    rippleCircle.setRadius(radius);
+    rippleCircle.setStyle({ opacity });
+  }, 40);
+}
+
+
+
+// Fit entire route in view
+function fitRoute() {
+  const bounds = L.latLngBounds(posts.map(p => [p.lat, p.lng]));
+  map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+map.on('click', () => closePanel());
+</script>
+</body>
+</html>
